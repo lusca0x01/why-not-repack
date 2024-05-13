@@ -11,7 +11,7 @@ $ chmod +x why-not-repack.sh
 ---
 ### Usage
 ```
-Usage: ./packer.sh [-u|-r] -f input_file
+Usage: ./why-not-repack.sh [-u|-r] -f input_file
 Options:
   -h  To see the help menu
   -u  Unpack the input file

@@ -19,7 +19,7 @@ while getopts 'urnhf:' flag; do
     u) unpack="true" ;;
     r) repack="true" ;;
     n) no_uImage="true";;
-    f) file="${OPTARG}" ;;
+    f) file="${OPTARG}" ; path=$(dirname "$file") ;;
     *) echo "Invalid option"
        print_usage
        exit 1 ;;
@@ -58,11 +58,11 @@ file_analyze () {
 
   prev_line=""
 
-  if [[ -f ./repack_info ]]; then
-    rm "repack_info"
+  if [[ -f "$path/repack_info" ]]; then
+    rm "$path/repack_info"
   fi
 
-  touch "repack_info"
+  touch "$path/repack_info"
 
   while IFS= read -r line; do
     if [[ "$line" =~ $pattern ]]; then
@@ -71,19 +71,19 @@ file_analyze () {
       description="${BASH_REMATCH[3]}"
 
       if ! [[ -z "$prev_line" ]]; then
-        echo "END: $decimal" >> "repack_info"
+        echo "END: $decimal" >> "$path/repack_info"
       fi
 
-      echo -n "DESCRIPTION: $description " >> "repack_info"
-      echo -n "START: $decimal " >> "repack_info"
+      echo -n "DESCRIPTION: $description " >> "$path/repack_info"
+      echo -n "START: $decimal " >> "$path/repack_info"
       prev_line="$line"
 
     fi
   done < "$temp_file"
 
- if [[ -s "repack_info" ]]; then
+ if [[ -s "$path/repack_info" ]]; then
   end_size=$(du -b "$1" | cut -f -1)
-  echo "END: $end_size" >> "repack_info"
+  echo "END: $end_size" >> "$path/repack_info"
   rm "$temp_file"
 
   echo "Control file for repacking created: repack_info file created!"
@@ -91,11 +91,11 @@ file_analyze () {
 }
 
 unpack() {
-  if ! [[ -d "unpacked" ]]; then
-    mkdir "unpacked"
+  if ! [[ -d "$path/unpacked" ]]; then
+    mkdir "$path/unpacked"
   fi
 
-  rm unpacked/* 2>/dev/null
+  rm "$path/unpacked/*" 2>/dev/null
 
   while IFS= read -r line; do
     description=$(awk '$0 ~ /DESCRIPTION:/ { print $2 }' <<< "$line")
@@ -107,16 +107,16 @@ unpack() {
     printf "\rUnpacking.\xC2\xB7. $description"; sleep 0.1
     printf "\rUnpacking..\xC2\xB7 $description"; sleep 0.1
 
-    if [[ -e "./unpacked/${description}.bin" ]]; then
+    if [[ -e "$path/unpacked/${description}.bin" ]]; then
       count=1
-      while [[ -e "./unpacked/${description}-${count}.bin" ]]; do
+      while [[ -e "$path/unpacked/${description}-${count}.bin" ]]; do
         ((count++))
       done
-      dd if="$1" of="./unpacked/${description}-${count}.bin" skip="$start" bs=1 count="$((end - start))" > /dev/null 2>&1
+      dd if="$1" of="$path/unpacked/${description}-${count}.bin" skip="$start" bs=1 count="$((end - start))" > /dev/null 2>&1
     else
-      dd if="$1" of="./unpacked/${description}.bin" skip="$start" bs=1 count="$((end - start))" > /dev/null 2>&1
+      dd if="$1" of="$path/unpacked/${description}.bin" skip="$start" bs=1 count="$((end - start))" > /dev/null 2>&1
     fi
-  done < "repack_info"
+  done < "$path/repack_info"
 
   printf "\033[2K\rDone!"
   echo
@@ -131,7 +131,7 @@ repack() {
 
   touch "$filename"
 
-  if ! [[ -s "repack_info" && -d "unpacked" ]]; then
+  if ! [[ -s "$path/repack_info" && -d "$path/unpacked" ]]; then
     echo "Please, first unpack the file with -u"
     exit 1
   fi
@@ -168,12 +168,12 @@ repack() {
       continue
     fi
 
-    if [[ -e "./unpacked/${description}.bin" ]]; then
-      dd if="./unpacked/${description}.bin" of="$filename" seek=$start bs=1 conv=notrunc > /dev/null 2>&1
-      size=$(du -b "$1.packed" | cut -f -1)
+    if [[ -e "$path/unpacked/${description}.bin" ]]; then
+      dd if="$path/unpacked/${description}.bin" of="$filename" seek=$start bs=1 conv=notrunc > /dev/null 2>&1
+      size=$(du -b "$filename" | cut -f -1)
       padding=$((size - end))
       if [[ "$padding" > 0 ]]; then
-        for i in {1.."$padding"}; do printf "\x00" >> "$1.packed"; done
+        for i in {1.."$padding"}; do printf "\x00" >> "$filename"; done
       fi
     fi
 
@@ -181,7 +181,7 @@ repack() {
     printf "\rPacking\xC2\xB7.. $description"; sleep 0.1
     printf "\rPacking.\xC2\xB7. $description"; sleep 0.1
     printf "\rPacking..\xC2\xB7 $description"; sleep 0.1
-  done < "repack_info"
+  done < "$path/repack_info"
 
   if [[ "$no_uImage" = 'true' ]]; then
     dd if="$filename" of="$filename.tmp" bs=1 skip="$(( uImage_start + uImage_end))" > /dev/null 2>&1

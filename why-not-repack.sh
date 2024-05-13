@@ -170,6 +170,11 @@ repack() {
 
     if [[ -e "./unpacked/${description}.bin" ]]; then
       dd if="./unpacked/${description}.bin" of="$filename" seek=$start bs=1 conv=notrunc > /dev/null 2>&1
+      size=$(du -b "$1.packed" | cut -f -1)
+      padding=$((size - end))
+      if [[ "$padding" > 0 ]]; then
+        for i in {1.."$padding"}; do printf "\x00" >> "$1.packed"; done
+      fi
     fi
 
     printf "\033[2K\rPacking... $description"; sleep 0.1
